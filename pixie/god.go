@@ -32,6 +32,7 @@ func God() *GodPool {
 				Name_NormalPixie,
 				Name_ProgrammerPixie,
 				Name_MultiTurnConversation,
+				Name_EnglishTeacher,
 			},
 			pixies: map[string]GodPixie{
 				Name_NormalPixie: {

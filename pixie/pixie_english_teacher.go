@@ -49,7 +49,7 @@ func (p EnglishTeacherPixie) Welcome() string {
 }
 
 func (p EnglishTeacherPixie) IntroduceSelf() string {
-	return "english_teacher |- 我是您的英文小老師"
+	return "@english_teacher |- 我是您的英文小老師"
 }
 func (p EnglishTeacherPixie) Help() string {
 	return "${skill} - $Vocabulary, $Dialogue, $Correct, $Translate"

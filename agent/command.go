@@ -17,14 +17,17 @@ func ToCommand(data string) Command {
 			Type:    CommandType_ListGodPixies,
 			Content: "",
 		}
-	}
-
-	if strings.HasPrefix(data, CommandType_FocusPixie) {
+	} else if strings.HasPrefix(data, CommandType_FocusPixie) {
 		pixieName := strings.TrimPrefix(data, CommandType_FocusPixie)
 
 		return Command{
 			Type:    CommandType_FocusPixie,
 			Content: pixieName,
+		}
+	} else if strings.HasPrefix(data, CommandType_Debug) {
+		return Command{
+			Type:    CommandType_Debug,
+			Content: "",
 		}
 	}
 

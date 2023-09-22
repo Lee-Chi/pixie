@@ -46,6 +46,10 @@ func God() *GodPool {
 					Pixie:  Summon_MultiTurnConversation(),
 					Summon: Summon_MultiTurnConversation,
 				},
+				Name_EnglishTeacher: {
+					Pixie:  Summon_EnglishTeacher(),
+					Summon: Summon_EnglishTeacher,
+				},
 			},
 		}
 	})

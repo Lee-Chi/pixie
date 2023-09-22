@@ -57,5 +57,5 @@ var (
 	Summon_MultiTurnConversation = NewMultiTurnConversation
 
 	Name_EnglishTeacher   = "british"
-	Summon_EnglistTeacher = NewEnglishTeacher
+	Summon_EnglishTeacher = NewEnglishTeacher
 )

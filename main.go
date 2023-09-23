@@ -40,9 +40,9 @@ import (
 var LineBot *linebot.Client = nil
 
 func main() {
-	dbDomain := os.Getenv("DB_DOMAIN")
-	dbUser := os.Getenv("DB_USER")
-	dbPassword := os.Getenv("DB_PASSWORD")
+	dbDomain := os.Getenv("MONGODB_DOMAIN")
+	dbUser := os.Getenv("MONGODB_USER")
+	dbPassword := os.Getenv("MONGODB_PASSWORD")
 	lineBotChannelSecret := os.Getenv("LINEBOT_CHANNEL_SECRET")
 	lineBotChannelToken := os.Getenv("LINEBOT_CHANNEL_TOKEN")
 	openAIToken := os.Getenv("OPENAI_TOKEN")

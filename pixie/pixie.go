@@ -37,9 +37,12 @@ func welcome(name string) string {
 	return fmt.Sprintf("您好，現在是小精靈 %s 為您服務喔", name)
 }
 
-type Mode string
-
 type Pixie interface {
+	Marshal() string
+	Unmarshal(string) error
+	NeedSave() bool
+
+	Name() string
 	Debug() string
 	Welcome() string
 	IntroduceSelf() string

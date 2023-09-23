@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	openai "github.com/sashabaranov/go-openai"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 type Turn struct {
@@ -15,6 +16,12 @@ type MultiTurnConversationPixie struct {
 	name  string
 	turns []Turn
 	role  string
+
+	wrapper struct {
+		Name string `bson:"name"`
+		Role string `bson:"role"`
+	}
+	needSave bool
 }
 
 func NewMultiTurnConversation() Pixie {
@@ -23,6 +30,37 @@ func NewMultiTurnConversation() Pixie {
 		turns: []Turn{},
 		role:  "",
 	}
+}
+
+func (p MultiTurnConversationPixie) Name() string {
+	return p.name
+}
+
+func (p MultiTurnConversationPixie) NeedSave() bool {
+	return p.needSave
+}
+
+func (p *MultiTurnConversationPixie) Unmarshal(marshal string) error {
+	if err := bson.Unmarshal([]byte(marshal), &p.wrapper); err != nil {
+		return err
+	}
+
+	p.name = p.wrapper.Name
+	p.role = p.wrapper.Role
+	p.turns = []Turn{}
+
+	return nil
+}
+
+func (p *MultiTurnConversationPixie) Marshal() string {
+	p.needSave = false
+
+	p.wrapper.Name = p.name
+	p.wrapper.Role = p.role
+
+	marshal, _ := bson.Marshal(p.wrapper)
+
+	return string(marshal)
 }
 
 func (p MultiTurnConversationPixie) Debug() string {
@@ -43,6 +81,8 @@ func (p *MultiTurnConversationPixie) ReplyMessage(message string) (string, error
 	if strings.HasPrefix(message, "!") {
 		return p.Help(), nil
 	} else if strings.HasPrefix(message, "#") {
+		p.needSave = true
+
 		p.role = strings.TrimPrefix(message, "#")
 
 		return "ok", nil

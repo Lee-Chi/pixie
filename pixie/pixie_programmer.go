@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	openai "github.com/sashabaranov/go-openai"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 const (
@@ -40,6 +41,13 @@ type ProgrammerPixie struct {
 	name     string
 	language string
 	skill    int
+
+	wrapper struct {
+		Name     string `bson:"name"`
+		Language string `bson:"language"`
+		Skill    int    `bson:"skill"`
+	}
+	needSave bool
 }
 
 func NewProgrammer() Pixie {
@@ -48,6 +56,37 @@ func NewProgrammer() Pixie {
 		language: "",
 		skill:    -1,
 	}
+}
+
+func (p ProgrammerPixie) Name() string {
+	return p.name
+}
+
+func (p ProgrammerPixie) NeedSave() bool {
+	return p.needSave
+}
+func (p *ProgrammerPixie) Unmarshal(marshal string) error {
+	if err := bson.Unmarshal([]byte(marshal), &p.wrapper); err != nil {
+		return err
+	}
+
+	p.name = p.wrapper.Name
+	p.language = p.wrapper.Language
+	p.skill = p.wrapper.Skill
+
+	return nil
+}
+
+func (p *ProgrammerPixie) Marshal() string {
+	p.needSave = false
+
+	p.wrapper.Name = p.name
+	p.wrapper.Language = p.language
+	p.wrapper.Skill = p.skill
+
+	marshal, _ := bson.Marshal(p.wrapper)
+
+	return string(marshal)
 }
 
 func (p ProgrammerPixie) Debug() string {
@@ -74,33 +113,43 @@ func (p *ProgrammerPixie) ReplyMessage(message string) (string, error) {
 	if strings.HasPrefix(message, "!") {
 		return p.Help(), nil
 	} else if strings.HasPrefix(message, "#") {
+		p.needSave = true
+
 		p.language = strings.TrimPrefix(message, "#")
 
 		return "ok", nil
 	} else if strings.HasPrefix(message, "$") {
+		p.needSave = true
+
 		skill := strings.TrimPrefix(message, "$")
+		reply := ""
 		switch skill {
 		case "Write":
 			p.skill = ProgrammerSkill_WriteCode
-			return "Ok, 想實現什麼功能?", nil
+			reply = "Ok, 想實現什麼功能?"
 		case "Read":
 			p.skill = ProgrammerSkill_ReadCode
-			return "Ok, 給我程式碼", nil
+			reply = "Ok, 給我程式碼"
 		case "Refactor":
 			p.skill = ProgrammerSkill_RefactorCode
-			return "Ok, 給我程式碼", nil
+			reply = "Ok, 給我程式碼"
 		case "Fix":
 			p.skill = ProgrammerSkill_FixBug
-			return "Ok, 給我程式碼", nil
+			reply = "Ok, 給我程式碼"
 		case "Test":
 			p.skill = ProgrammerSkill_WriteTest
-			return "Ok, 給我程式碼", nil
+			reply = "Ok, 給我程式碼"
 		case "Regex":
 			p.skill = ProgrammerSkill_WriteRegex
-			return "Ok, 想做什麼需求?", nil
+			reply = "Ok, 想做什麼需求?"
 		}
 
-		return "Oh no", nil
+		if reply == "" {
+			p.needSave = false
+			reply = "Oh no"
+		}
+
+		return reply, nil
 	}
 
 	messages := make([]openai.ChatCompletionMessage, 0)

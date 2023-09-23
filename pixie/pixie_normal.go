@@ -5,11 +5,18 @@ import (
 	"strings"
 
 	openai "github.com/sashabaranov/go-openai"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 type NormalPixie struct {
 	name string
 	role string
+
+	wrapper struct {
+		Name string `bson:"name"`
+		Role string `bson:"role"`
+	}
+	needSave bool
 }
 
 func NewNormal() Pixie {
@@ -17,6 +24,35 @@ func NewNormal() Pixie {
 		name: "pixie",
 		role: "",
 	}
+}
+
+func (p NormalPixie) Name() string {
+	return p.name
+}
+
+func (p NormalPixie) NeedSave() bool {
+	return p.needSave
+}
+func (p *NormalPixie) Unmarshal(marshal string) error {
+	if err := bson.Unmarshal([]byte(marshal), &p.wrapper); err != nil {
+		return err
+	}
+
+	p.name = p.wrapper.Name
+	p.role = p.wrapper.Role
+
+	return nil
+}
+
+func (p *NormalPixie) Marshal() string {
+	p.needSave = false
+
+	p.wrapper.Name = p.name
+	p.wrapper.Role = p.role
+
+	marshal, _ := bson.Marshal(p.wrapper)
+
+	return string(marshal)
 }
 
 func (p NormalPixie) Debug() string {
@@ -37,6 +73,8 @@ func (p *NormalPixie) ReplyMessage(message string) (string, error) {
 	if strings.HasPrefix(message, "!") {
 		return p.Help(), nil
 	} else if strings.HasPrefix(message, "#") {
+		p.needSave = true
+
 		p.role = strings.TrimPrefix(message, "#")
 
 		return "ok", nil

@@ -1,10 +1,20 @@
 package agent
 
 import (
+	"context"
 	"fmt"
+	"pixie/db"
+	"pixie/db/model"
+	"pixie/db/mongo"
 	"pixie/pixie"
 	"strings"
 	"sync"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
+
+var (
+	Field_UserId mongo.F = mongo.Field("user_id")
 )
 
 func debug() string {
@@ -21,34 +31,29 @@ func debug() string {
 	return strings.Join(lines, "\n")
 }
 
-func pickupAgent(userID string) (*Agent, error) {
+func pickupAgent(ctx context.Context, userId string) (*Agent, error) {
 	agentsMtx.RLock()
 	agents := Agents()
-	agent, ok := agents[userID]
+	agent, ok := agents[userId]
 	agentsMtx.RUnlock()
 	if ok {
 		return agent, nil
 	}
 
-	firstPixie, err := pixie.God().Pickup(pixie.Name_NormalPixie)
+	agent, err := NewAgent(ctx, userId)
 	if err != nil {
 		return nil, err
 	}
 
-	agent = &Agent{
-		id: userID,
-		px: firstPixie.Summon(),
-	}
-
 	agentsMtx.Lock()
-	agents[userID] = agent
+	agents[userId] = agent
 	agentsMtx.Unlock()
 
 	return agent, nil
 }
 
-func ExecuteCommand(userID string, commandData string) Message {
-	agent, err := pickupAgent(userID)
+func ExecuteCommand(ctx context.Context, userId string, commandData string) Message {
+	agent, err := pickupAgent(ctx, userId)
 	if err != nil {
 		return Message{
 			Title:   "Agent Error",
@@ -73,7 +78,11 @@ func ExecuteCommand(userID string, commandData string) Message {
 		}
 	}
 
-	return handler(agent, command.Content)
+	message := handler(agent, command.Content)
+
+	agent.Save(ctx)
+
+	return message
 }
 
 var once sync.Once
@@ -103,6 +112,56 @@ type Agent struct {
 
 	mtx    sync.Mutex
 	isBusy bool
+}
+
+func NewAgent(ctx context.Context, userId string) (*Agent, error) {
+	md := struct {
+		Id          primitive.ObjectID `bson:"_id"`
+		model.Agent `bson:"-,inline"`
+	}{}
+	if err := db.Pixie().Collection(model.CAgent).FindOneOrZero(
+		ctx,
+		Field_UserId.Equal(userId),
+		&md,
+	); err != nil {
+		return nil, err
+	}
+
+	agent := &Agent{
+		id: userId,
+		px: nil,
+	}
+
+	if md.Id.IsZero() {
+
+		firstPixie, err := pixie.God().Pickup(pixie.Name_NormalPixie)
+		if err != nil {
+			return nil, err
+		}
+
+		agent.px = firstPixie.Summon()
+
+		md.UserId = userId
+		md.Pixie = model.Pixie{
+			Name:    agent.px.Name(),
+			Payload: agent.px.Marshal(),
+		}
+
+		if err := db.Pixie().Collection(model.CAgent).Insert(
+			ctx,
+			md.Agent,
+		); err != nil {
+			return nil, err
+		}
+
+		return agent, nil
+	}
+
+	if err := agent.px.Unmarshal(md.Pixie.Payload); err != nil {
+		return nil, err
+	}
+
+	return agent, nil
 }
 
 func (a *Agent) Lock() error {
@@ -139,4 +198,28 @@ func (a *Agent) Pixie() pixie.Pixie {
 	}
 
 	return a.px
+}
+
+func (a *Agent) Save(ctx context.Context) error {
+	if !a.px.NeedSave() {
+		return nil
+	}
+
+	md := model.Agent{
+		UserId: a.id,
+		Pixie: model.Pixie{
+			Name:    a.px.Name(),
+			Payload: a.px.Marshal(),
+		},
+	}
+
+	if err := db.Pixie().Collection(model.CAgent).Update(
+		ctx,
+		Field_UserId.Equal(a.id),
+		md,
+	); err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -44,6 +44,10 @@ func NewEnglishTeacher() Pixie {
 	}
 }
 
+func (p EnglishTeacherPixie) Debug() string {
+	skill := EnglishTeacherSkillMeans[p.skill]
+	return fmt.Sprintf("{name: %s, skill: %s, size_of_turns: %d}", p.name, skill, len(p.turns))
+}
 func (p EnglishTeacherPixie) Welcome() string {
 	return welcome(p.name)
 }

@@ -1,6 +1,7 @@
 package pixie
 
 import (
+	"fmt"
 	"strings"
 
 	openai "github.com/sashabaranov/go-openai"
@@ -22,6 +23,10 @@ func NewMultiTurnConversation() Pixie {
 		turns: []Turn{},
 		role:  "",
 	}
+}
+
+func (p MultiTurnConversationPixie) Debug() string {
+	return fmt.Sprintf("{name: %s, role: %s, size_of_turns: %d}", p.name, p.role, len(p.turns))
 }
 
 func (p MultiTurnConversationPixie) Welcome() string {

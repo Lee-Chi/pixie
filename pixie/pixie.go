@@ -40,6 +40,7 @@ func welcome(name string) string {
 type Mode string
 
 type Pixie interface {
+	Debug() string
 	Welcome() string
 	IntroduceSelf() string
 	Help() string

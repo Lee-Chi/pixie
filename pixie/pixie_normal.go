@@ -19,6 +19,10 @@ func NewNormal() Pixie {
 	}
 }
 
+func (p NormalPixie) Debug() string {
+	return fmt.Sprintf("{name: %s, role: %s}", p.name, p.role)
+}
+
 func (p NormalPixie) Welcome() string {
 	return welcome(p.name)
 }

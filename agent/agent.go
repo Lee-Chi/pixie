@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-func dumpAgents() string {
+func debug() string {
 	agentsMtx.RLock()
 	defer agentsMtx.RUnlock()
 
@@ -15,7 +15,7 @@ func dumpAgents() string {
 
 	agents := Agents()
 	for _, agent := range agents {
-		lines = append(lines, fmt.Sprintf("%+v", agent))
+		lines = append(lines, fmt.Sprintf("id: %s, pixie: %s", agent.id, agent.Pixie().Debug()))
 	}
 
 	return strings.Join(lines, "\n")

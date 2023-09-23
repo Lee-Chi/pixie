@@ -29,6 +29,11 @@ func ToCommand(data string) Command {
 			Type:    CommandType_Debug,
 			Content: "",
 		}
+	} else if strings.HasPrefix(data, CommandType_Help) {
+		return Command{
+			Type:    CommandType_Help,
+			Content: "",
+		}
 	}
 
 	return Command{
@@ -107,9 +112,9 @@ func CommandChat(agent *Agent, content string) Message {
 const CommandType_Debug string = ":"
 
 func CommandDebug(agent *Agent, content string) Message {
-	dump := dumpAgents()
+	content = debug()
 	return Message{
 		Title:   "Debug",
-		Content: dump,
+		Content: content,
 	}
 }

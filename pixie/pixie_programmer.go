@@ -50,6 +50,11 @@ func NewProgrammer() Pixie {
 	}
 }
 
+func (p ProgrammerPixie) Debug() string {
+	skill := ProgrammerSkillMeans[p.skill]
+	return fmt.Sprintf("{name: %s, language: %s, skill: %s}", p.name, p.language, skill)
+}
+
 func (p ProgrammerPixie) Welcome() string {
 	return welcome(p.name)
 }

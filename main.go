@@ -2,11 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-
 	"pixie/agent"
 	"pixie/db"
 	"pixie/pixie"
@@ -14,28 +15,16 @@ import (
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
 
-// func main() {
-// 	ctx := context.Background()
+type Config struct {
+	DBDomain   string `json:"mongodb_domain"`
+	DBUser     string `json:"mongodb_user"`
+	DBPassword string `json:"mongodb_password"`
 
-// 	if err := db.Build(ctx, "cluster0.bi4tgm4.mongodb.net", "root", "DeiQ2mMvZmJwS9WZ"); err != nil {
-// 		panic(err)
-// 	}
+	LineBotChannelSecret string `json:"linebot_channel_secret"`
+	LineBotChannelToken  string `json:"linebot_channel_token"`
 
-// 	if err := db.Pixie().Collection(model.CAgent).Insert(ctx, model.Agent{
-// 		UserId: "test",
-// 	}); err != nil {
-// 		panic(err)
-// 	}
-// 	// pixie.Build("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")
-// 	// userID := "Leo"
-// 	// log.Println("ready...")
-// 	// for {
-// 	// 	var commandData string
-// 	// 	fmt.Scanln(&commandData)
-// 	// 	message := agent.ExecuteCommand(userID, commandData)
-// 	// 	log.Println(message.Marshal())
-// 	// }
-// }
+	OpenAIToken string `json:"openai_token"`
+}
 
 var LineBot *linebot.Client = nil
 
@@ -47,9 +36,29 @@ func main() {
 	lineBotChannelToken := os.Getenv("LINEBOT_CHANNEL_TOKEN")
 	openAIToken := os.Getenv("OPENAI_TOKEN")
 
-	fmt.Println("lineBotChannelSecret:", lineBotChannelSecret)
-	fmt.Println("lineBotChannelToken:", lineBotChannelToken)
-	fmt.Println("openAIToken:", openAIToken)
+	conf := flag.String("config", "", "")
+	flag.Parse()
+
+	if *conf != "" {
+		data, err := os.ReadFile(*conf)
+		if err != nil {
+			panic(err)
+		}
+
+		config := Config{}
+		if err := json.Unmarshal(data, &config); err != nil {
+			panic(err)
+		}
+
+		dbDomain = config.DBDomain
+		dbUser = config.DBUser
+		dbPassword = config.DBPassword
+
+		lineBotChannelSecret = config.LineBotChannelSecret
+		lineBotChannelToken = config.LineBotChannelToken
+
+		openAIToken = config.OpenAIToken
+	}
 
 	if err := db.Build(context.Background(), dbDomain, dbUser, dbPassword); err != nil {
 		panic(err)

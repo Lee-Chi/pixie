@@ -1,11 +1,11 @@
 package pixie
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
 	openai "github.com/sashabaranov/go-openai"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 const (
@@ -43,9 +43,9 @@ type ProgrammerPixie struct {
 	skill    int
 
 	wrapper struct {
-		Name     string `bson:"name"`
-		Language string `bson:"language"`
-		Skill    int    `bson:"skill"`
+		Name     string `json:"name"`
+		Language string `json:"language"`
+		Skill    int    `json:"skill"`
 	}
 	needSave bool
 }
@@ -66,7 +66,7 @@ func (p ProgrammerPixie) NeedSave() bool {
 	return p.needSave
 }
 func (p *ProgrammerPixie) Unmarshal(marshal string) error {
-	if err := bson.Unmarshal([]byte(marshal), &p.wrapper); err != nil {
+	if err := json.Unmarshal([]byte(marshal), &p.wrapper); err != nil {
 		return err
 	}
 
@@ -84,7 +84,7 @@ func (p *ProgrammerPixie) Marshal() string {
 	p.wrapper.Language = p.language
 	p.wrapper.Skill = p.skill
 
-	marshal, _ := bson.Marshal(p.wrapper)
+	marshal, _ := json.Marshal(p.wrapper)
 
 	return string(marshal)
 }

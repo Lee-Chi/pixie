@@ -1,11 +1,11 @@
 package pixie
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
 	openai "github.com/sashabaranov/go-openai"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 type NormalPixie struct {
@@ -13,8 +13,8 @@ type NormalPixie struct {
 	role string
 
 	wrapper struct {
-		Name string `bson:"name"`
-		Role string `bson:"role"`
+		Name string `json:"name"`
+		Role string `json:"role"`
 	}
 	needSave bool
 }
@@ -34,7 +34,7 @@ func (p NormalPixie) NeedSave() bool {
 	return p.needSave
 }
 func (p *NormalPixie) Unmarshal(marshal string) error {
-	if err := bson.Unmarshal([]byte(marshal), &p.wrapper); err != nil {
+	if err := json.Unmarshal([]byte(marshal), &p.wrapper); err != nil {
 		return err
 	}
 
@@ -50,7 +50,7 @@ func (p *NormalPixie) Marshal() string {
 	p.wrapper.Name = p.name
 	p.wrapper.Role = p.role
 
-	marshal, _ := bson.Marshal(p.wrapper)
+	marshal, _ := json.Marshal(p.wrapper)
 
 	return string(marshal)
 }

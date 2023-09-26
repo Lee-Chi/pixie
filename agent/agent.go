@@ -155,6 +155,15 @@ func NewAgent(ctx context.Context, userId string) (*Agent, error) {
 		}
 
 		return agent, nil
+	} else {
+		firstPixie, err := pixie.God().Pickup(md.Pixie.Name)
+		if err != nil {
+			return nil, err
+		}
+		agent.px = firstPixie.Summon()
+		if err := agent.px.Unmarshal(md.Pixie.Payload); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := agent.px.Unmarshal(md.Pixie.Payload); err != nil {

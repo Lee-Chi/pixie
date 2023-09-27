@@ -207,7 +207,7 @@ func (p *EnglishTeacherPixie) Resolve(ctx context.Context, request Request) (str
 				}
 				lines := []string{
 					"Provide three example sentences for the following words (part of speech), and present them in this format.",
-					"Words (part of speech):",
+					"Words (part of speech)",
 					"1. Example sentence 1",
 					"2. Example sentence 2",
 					"3. Example sentence 3",

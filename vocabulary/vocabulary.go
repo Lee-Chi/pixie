@@ -32,10 +32,11 @@ type Vocabulary struct {
 
 func (v Vocabulary) Marshal() string {
 	lines := []string{
-		fmt.Sprintf("(#%s) %s", v.Id.Hex(), v.Word),
+		fmt.Sprintf("#%s", v.Id.Hex()),
+		fmt.Sprintf("|- %s", v.Word),
 	}
 	for _, def := range v.Definitions {
-		lines = append(lines, fmt.Sprintf("\t%s, %s", def.PartOfSpeech, def.Text))
+		lines = append(lines, fmt.Sprintf("|-%s, %s", def.PartOfSpeech, def.Text))
 	}
 
 	return strings.Join(lines, "\n")

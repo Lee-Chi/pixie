@@ -95,15 +95,6 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// GetMessageQuota: Get how many remain free tier push message quota you still have this month. (maximum 500)
-	quota, err := LineBot.GetMessageQuota().Do()
-	if err != nil {
-		log.Println("Quota err:", err)
-	}
-	if quota.Value <= 0 {
-		return
-	}
-
 	for _, event := range events {
 		if event.Type == linebot.EventTypeMessage {
 			fmt.Println("event message type:", event.Message.Type())

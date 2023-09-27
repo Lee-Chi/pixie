@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	openai "github.com/sashabaranov/go-openai"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 const (
@@ -191,10 +192,33 @@ func (p *EnglishTeacherPixie) Resolve(ctx context.Context, request Request) (str
 				}
 				return voc.Marshal(), nil
 			case "#":
-				if err := vocabulary.Toggle(ctx, request.UserId); err != nil {
+				vocabularyId, _ := primitive.ObjectIDFromHex(payload)
+
+				if err := vocabulary.Toggle(ctx, request.UserId, vocabularyId); err != nil {
 					return "", err
 				}
 				return "Ok", nil
+			case "^":
+				vocabularyId, _ := primitive.ObjectIDFromHex(payload)
+
+				voc, err := vocabulary.At(ctx, request.UserId, vocabularyId)
+				if err != nil {
+					return "", err
+				}
+				lines := []string{
+					"Provide three example sentences for the following words (part of speech), and present them in this format.",
+					"Word (part of speech):",
+					"1. Example sentence 1",
+					"2. Example sentence 2",
+					"3. Example sentence 3",
+				}
+				parts := []string{}
+				for _, def := range voc.Definitions {
+					parts = append(parts, fmt.Sprintf("%s (%s)", voc.Word, def.PartOfSpeech))
+				}
+				lines = append(lines, fmt.Sprintf("###%s###", strings.Join(parts, ",")))
+
+				message = strings.Join(lines, "\n")
 			case "~":
 				page, err := strconv.ParseInt(payload, 10, 64)
 				if err != nil {

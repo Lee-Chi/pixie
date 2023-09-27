@@ -25,13 +25,14 @@ type Definition struct {
 	PartOfSpeech string `json:"part_of_speech"`
 }
 type Vocabulary struct {
-	Word        string       `json:"word"`
-	Definitions []Definition `json:"definitions"`
+	Id          primitive.ObjectID `json:"id"`
+	Word        string             `json:"word"`
+	Definitions []Definition       `json:"definitions"`
 }
 
 func (v Vocabulary) Marshal() string {
 	lines := []string{
-		v.Word,
+		fmt.Sprintf("(#%s) %s", v.Id, v.Word),
 	}
 	for _, def := range v.Definitions {
 		lines = append(lines, fmt.Sprintf("\t%s, %s", def.PartOfSpeech, def.Text))
@@ -40,8 +41,9 @@ func (v Vocabulary) Marshal() string {
 	return strings.Join(lines, "\n")
 }
 
-func FromModel(md model.Vocabulary) Vocabulary {
+func FromModel(id primitive.ObjectID, md model.Vocabulary) Vocabulary {
 	vocabulary := Vocabulary{
+		Id:          id,
 		Word:        md.Word,
 		Definitions: []Definition{},
 	}
@@ -124,6 +126,37 @@ func Commit(ctx context.Context, userId string, vocabulary Vocabulary) error {
 	return nil
 }
 
+func At(ctx context.Context, userId string, vocabularyId primitive.ObjectID) (Vocabulary, error) {
+	if vocabularyId.IsZero() {
+		user := model.VocabularyUser{}
+		if err := db.Pixie().Collection(model.CVocabularyUser).FindOneOrZero(
+			ctx,
+			Field_UserId.Equal(userId),
+			&user,
+		); err != nil {
+			return Vocabulary{}, err
+		}
+
+		vocabularyId = user.CurrentVocabularyId
+	}
+
+	voc := struct {
+		Id               primitive.ObjectID `bson:"_id"`
+		model.Vocabulary `bson:"-,inline"`
+	}{}
+	if err := db.Pixie().Collection(model.CVocabulary).FindOneByID(
+		ctx,
+		vocabularyId,
+		&voc,
+	); err != nil {
+		return Vocabulary{}, err
+	}
+
+	vocabulary := FromModel(voc.Id, voc.Vocabulary)
+
+	return vocabulary, nil
+}
+
 func Next(ctx context.Context, userId string) (Vocabulary, error) {
 	user := model.VocabularyUser{}
 	if err := db.Pixie().Collection(model.CVocabularyUser).FindOneOrZero(
@@ -176,7 +209,7 @@ func Next(ctx context.Context, userId string) (Vocabulary, error) {
 		return Vocabulary{}, err
 	}
 
-	vocabulary := FromModel(voc.Vocabulary)
+	vocabulary := FromModel(voc.Id, voc.Vocabulary)
 
 	return vocabulary, nil
 }
@@ -236,28 +269,32 @@ func Previous(ctx context.Context, userId string) (Vocabulary, error) {
 		return Vocabulary{}, err
 	}
 
-	vocabulary := FromModel(voc.Vocabulary)
+	vocabulary := FromModel(voc.Id, voc.Vocabulary)
 
 	return vocabulary, nil
 }
 
-func Toggle(ctx context.Context, userId string) error {
-	var user model.VocabularyUser
-	if err := db.Pixie().Collection(model.CVocabularyUser).FindOne(
-		ctx,
-		Field_UserId.Equal(userId),
-		&user,
-	); err != nil {
-		return err
+func Toggle(ctx context.Context, userId string, vocabularyId primitive.ObjectID) error {
+	if vocabularyId.IsZero() {
+		var user model.VocabularyUser
+		if err := db.Pixie().Collection(model.CVocabularyUser).FindOne(
+			ctx,
+			Field_UserId.Equal(userId),
+			&user,
+		); err != nil {
+			return err
+		}
+
+		vocabularyId = user.CurrentVocabularyId
 	}
 
 	bookmark := model.VocabularyBookmark{
 		UserId:       userId,
-		VocabularyId: user.CurrentVocabularyId,
+		VocabularyId: vocabularyId,
 		CreatedAt:    time.Now(),
 	}
 
-	condition := Field_UserId.Equal(userId).And(Field_VocabularyId.Equal(user.CurrentVocabularyId))
+	condition := Field_UserId.Equal(userId).And(Field_VocabularyId.Equal(vocabularyId))
 
 	count, err := db.Pixie().Collection(model.CVocabularyBookmark).Count(
 		ctx,
@@ -298,7 +335,7 @@ func BrowseBookmark(ctx context.Context, userId string, page int64) ([]Vocabular
 	if err := db.Pixie().Collection(model.CVocabularyBookmark).FindSortSkipLimit(
 		ctx,
 		Field_UserId.Equal(userId),
-		mongo.Field_ID.Asc(),
+		mongo.Field_ID.Desc(),
 		skip,
 		limit,
 		&bookmarks,
@@ -332,7 +369,7 @@ func BrowseBookmark(ctx context.Context, userId string, page int64) ([]Vocabular
 
 		for _, bookmark := range bookmarks {
 			if found, ok := cache[bookmark.VocabularyId.Hex()]; ok {
-				vocabularies = append(vocabularies, FromModel(found))
+				vocabularies = append(vocabularies, FromModel(bookmark.VocabularyId, found))
 			}
 		}
 	}

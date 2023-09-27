@@ -205,18 +205,18 @@ func (p *EnglishTeacherPixie) Resolve(ctx context.Context, request Request) (str
 				if err != nil {
 					return "", err
 				}
+				parts := []string{}
+				for _, def := range voc.Definitions {
+					parts = append(parts, fmt.Sprintf("%s (%s)", voc.Word, def.PartOfSpeech))
+				}
 				lines := []string{
-					"Provide three example sentences for the following words (part of speech), and present them in this format.",
+					fmt.Sprintf("###%s###", strings.Join(parts, ",")),
+					"Provide three example sentences above of text, and present them in this format.",
 					"Words (part of speech)",
 					"1. Example sentence 1",
 					"2. Example sentence 2",
 					"3. Example sentence 3",
 				}
-				parts := []string{}
-				for _, def := range voc.Definitions {
-					parts = append(parts, fmt.Sprintf("%s (%s)", voc.Word, def.PartOfSpeech))
-				}
-				lines = append(lines, fmt.Sprintf("###%s###", strings.Join(parts, ",")))
 
 				message = strings.Join(lines, "\n")
 			case "~":

@@ -36,7 +36,7 @@ func (v Vocabulary) Marshal() string {
 		fmt.Sprintf("|- %s", v.Word),
 	}
 	for _, def := range v.Definitions {
-		lines = append(lines, fmt.Sprintf("|-%s, %s", def.PartOfSpeech, def.Text))
+		lines = append(lines, fmt.Sprintf("|- %s, %s", def.PartOfSpeech, def.Text))
 	}
 
 	return strings.Join(lines, "\n")

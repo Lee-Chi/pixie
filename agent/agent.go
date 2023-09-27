@@ -78,7 +78,7 @@ func ExecuteCommand(ctx context.Context, userId string, commandData string) Mess
 		}
 	}
 
-	message := handler(agent, command.Content)
+	message := handler(ctx, agent, command.Content)
 
 	agent.Save(ctx)
 
@@ -91,7 +91,7 @@ var agentsMtx sync.RWMutex
 func Agents() map[string]*Agent {
 	once.Do(func() {
 		agents = map[string]*Agent{}
-		commandHandlers = map[string]func(*Agent, string) Message{
+		commandHandlers = map[string]func(context.Context, *Agent, string) Message{
 			CommandType_ListGodPixies: CommandListGodPixies,
 			CommandType_FocusPixie:    CommandFocusPixie,
 			CommandType_Help:          CommandHelp,
@@ -104,7 +104,7 @@ func Agents() map[string]*Agent {
 }
 
 var agents map[string]*Agent
-var commandHandlers map[string]func(*Agent, string) Message
+var commandHandlers map[string]func(context.Context, *Agent, string) Message
 
 type Agent struct {
 	id string

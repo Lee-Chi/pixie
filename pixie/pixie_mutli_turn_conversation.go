@@ -1,6 +1,7 @@
 package pixie
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -77,7 +78,9 @@ func (p MultiTurnConversationPixie) Help() string {
 	return "#{角色} - #面試官 ..."
 }
 
-func (p *MultiTurnConversationPixie) ReplyMessage(message string) (string, error) {
+func (p *MultiTurnConversationPixie) Resolve(ctx context.Context, request Request) (string, error) {
+	message := request.Payload
+
 	if strings.HasPrefix(message, "!") {
 		return p.Help(), nil
 	} else if strings.HasPrefix(message, "#") {

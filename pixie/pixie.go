@@ -34,9 +34,13 @@ func chat(messages []openai.ChatCompletionMessage) (string, error) {
 }
 
 func welcome(name string) string {
-	return fmt.Sprintf("您好，現在是小精靈 %s 為您服務喔", name)
+	return fmt.Sprintf("您好，現在是小精靈 %s 為您服務", name)
 }
 
+type Request struct {
+	UserId  string
+	Payload string
+}
 type Pixie interface {
 	Marshal() string
 	Unmarshal(string) error
@@ -47,7 +51,7 @@ type Pixie interface {
 	Welcome() string
 	IntroduceSelf() string
 	Help() string
-	ReplyMessage(message string) (string, error)
+	Resolve(ctx context.Context, request Request) (string, error)
 }
 
 var (

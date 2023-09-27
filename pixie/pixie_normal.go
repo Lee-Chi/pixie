@@ -1,6 +1,7 @@
 package pixie
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -69,7 +70,9 @@ func (p NormalPixie) Help() string {
 	return "#{角色} - #專家"
 }
 
-func (p *NormalPixie) ReplyMessage(message string) (string, error) {
+func (p *NormalPixie) Resolve(ctx context.Context, request Request) (string, error) {
+	message := request.Payload
+
 	if strings.HasPrefix(message, "!") {
 		return p.Help(), nil
 	} else if strings.HasPrefix(message, "#") {

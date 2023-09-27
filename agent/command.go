@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"pixie/pixie"
 	"strings"
@@ -44,7 +45,7 @@ func ToCommand(data string) Command {
 
 const CommandType_ListGodPixies string = "/"
 
-func CommandListGodPixies(agent *Agent, content string) Message {
+func CommandListGodPixies(ctx context.Context, agent *Agent, content string) Message {
 	return Message{
 		Title:   "可召喚的小精靈",
 		Content: pixie.God().ListPixies(),
@@ -53,7 +54,7 @@ func CommandListGodPixies(agent *Agent, content string) Message {
 
 const CommandType_FocusPixie string = "@"
 
-func CommandFocusPixie(agent *Agent, content string) Message {
+func CommandFocusPixie(ctx context.Context, agent *Agent, content string) Message {
 	pixieName := content
 	if pixieName == "" {
 		pixieName = pixie.Name_NormalPixie
@@ -76,7 +77,7 @@ func CommandFocusPixie(agent *Agent, content string) Message {
 
 const CommandType_Help string = "?"
 
-func CommandHelp(agent *Agent, context string) Message {
+func CommandHelp(ctx context.Context, agent *Agent, context string) Message {
 	px := agent.Pixie()
 
 	return Message{
@@ -87,7 +88,7 @@ func CommandHelp(agent *Agent, context string) Message {
 
 const CommandType_Chat string = ""
 
-func CommandChat(agent *Agent, content string) Message {
+func CommandChat(ctx context.Context, agent *Agent, content string) Message {
 	px := agent.Pixie()
 
 	if px == nil {
@@ -96,7 +97,13 @@ func CommandChat(agent *Agent, content string) Message {
 		}
 	}
 
-	message, err := px.ReplyMessage(content)
+	message, err := px.Resolve(
+		ctx,
+		pixie.Request{
+			UserId:  agent.id,
+			Payload: content,
+		},
+	)
 	if err != nil {
 		return Message{
 			Title:   fmt.Sprintf("哎呀，發生了一點點小錯誤"),
@@ -111,7 +118,7 @@ func CommandChat(agent *Agent, content string) Message {
 
 const CommandType_Debug string = ":"
 
-func CommandDebug(agent *Agent, content string) Message {
+func CommandDebug(ctx context.Context, agent *Agent, content string) Message {
 	content = debug()
 	return Message{
 		Title:   "Debug",

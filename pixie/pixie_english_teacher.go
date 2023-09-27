@@ -1,8 +1,11 @@
 package pixie
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"pixie/vocabulary"
+	"strconv"
 	"strings"
 
 	openai "github.com/sashabaranov/go-openai"
@@ -11,22 +14,24 @@ import (
 const (
 	EnglishTeacherSkill_Min int = iota
 	EnglishTeacherSkill_Vocabulary
-	EngiishTeacherSkill_Dialogue
+	EnglishTeacherSkill_Dialogue
 	EnglishTeacherSkill_Correct
 	EnglishTeacherSkill_Translate
+	EnglishTeacherSkill_Learn
 	EnglishTeacherSkill_Max
 )
 
 var EnglishTeacherSkillMeans map[int]string = map[int]string{
 	EnglishTeacherSkill_Vocabulary: "Vocabulary",
-	EngiishTeacherSkill_Dialogue:   "Dialogue",
+	EnglishTeacherSkill_Dialogue:   "Dialogue",
 	EnglishTeacherSkill_Correct:    "Correct",
 	EnglishTeacherSkill_Translate:  "Translate",
+	EnglishTeacherSkill_Learn:      "Learn",
 }
 
 var EnglishTeacherSkillTasks map[int]string = map[int]string{
 	EnglishTeacherSkill_Vocabulary: "Explain the following words in English. Present them in a table format, and the table should include the word, part of speech, definition, and example sentences: \"\"\"%s\"\"\"",
-	EngiishTeacherSkill_Dialogue:   "Can we have a conversation about %s?",
+	EnglishTeacherSkill_Dialogue:   "Can we have a conversation about %s?",
 	EnglishTeacherSkill_Correct:    "Check the following text for grammar or spelling errors: \"\"\"%s\"\"\"",
 	EnglishTeacherSkill_Translate:  "Translate the following text into english: \"\"\"%s\"\"\"",
 }
@@ -94,10 +99,12 @@ func (p EnglishTeacherPixie) IntroduceSelf() string {
 	return "@british |- 我是您的英文小老師"
 }
 func (p EnglishTeacherPixie) Help() string {
-	return "${skill} - $Vocabulary, $Dialogue, $Correct, $Translate"
+	return "${skill} - $Vocabulary, $Dialogue, $Correct, $Translate, $Learn"
 }
 
-func (p *EnglishTeacherPixie) ReplyMessage(message string) (string, error) {
+func (p *EnglishTeacherPixie) Resolve(ctx context.Context, request Request) (string, error) {
+	message := request.Payload
+
 	if strings.HasPrefix(message, "!") {
 		return p.Help(), nil
 	} else if strings.HasPrefix(message, "$") {
@@ -110,7 +117,7 @@ func (p *EnglishTeacherPixie) ReplyMessage(message string) (string, error) {
 			p.skill = EnglishTeacherSkill_Vocabulary
 			reply = "Ok, 想知道什麼單字?"
 		case "Dialogue":
-			p.skill = EngiishTeacherSkill_Dialogue
+			p.skill = EnglishTeacherSkill_Dialogue
 			reply = "Ok, 要討論什麼話題?"
 			p.turns = []Turn{}
 		case "Correct":
@@ -119,6 +126,9 @@ func (p *EnglishTeacherPixie) ReplyMessage(message string) (string, error) {
 		case "Translate":
 			p.skill = EnglishTeacherSkill_Translate
 			reply = "Ok, 想翻譯什麼呢?"
+		case "Learn":
+			p.skill = EnglishTeacherSkill_Learn
+			reply = "Ok, 來繼續學習八"
 		}
 
 		if reply == "" {
@@ -137,7 +147,7 @@ func (p *EnglishTeacherPixie) ReplyMessage(message string) (string, error) {
 	})
 
 	if p.skill > EnglishTeacherSkill_Min && p.skill < EnglishTeacherSkill_Max {
-		if p.skill == EngiishTeacherSkill_Dialogue {
+		if p.skill == EnglishTeacherSkill_Dialogue {
 			for _, turn := range p.turns {
 				messages = append(messages, openai.ChatCompletionMessage{
 					Role:    openai.ChatMessageRoleUser,
@@ -157,6 +167,54 @@ func (p *EnglishTeacherPixie) ReplyMessage(message string) (string, error) {
 					Content: message,
 				})
 			}
+		} else if p.skill == EnglishTeacherSkill_Learn {
+			action, payload := func(msg string) (string, string) {
+				var action, payload string
+				if len(msg) > 0 {
+					action = msg[:1]
+					payload = msg[1:]
+				}
+
+				return action, payload
+			}(message)
+			switch action {
+			case "<":
+				voc, err := vocabulary.Previous(ctx, request.UserId)
+				if err != nil {
+					return "", err
+				}
+				return voc.Marshal(), nil
+			case ">":
+				voc, err := vocabulary.Next(ctx, request.UserId)
+				if err != nil {
+					return "", err
+				}
+				return voc.Marshal(), nil
+			case "#":
+				if err := vocabulary.Toggle(ctx, request.UserId); err != nil {
+					return "", err
+				}
+				return "Ok", nil
+			case "~":
+				page, err := strconv.ParseInt(payload, 10, 64)
+				if err != nil {
+					return "", err
+				}
+				vocs, err := vocabulary.BrowseBookmark(ctx, request.UserId, page)
+				if err != nil {
+					return "", err
+				}
+				lines := []string{}
+				for _, voc := range vocs {
+					lines = append(lines, voc.Marshal())
+				}
+				return strings.Join(lines, "\n"), nil
+			}
+
+			messages = append(messages, openai.ChatCompletionMessage{
+				Role:    openai.ChatMessageRoleUser,
+				Content: message,
+			})
 		} else {
 			messages = append(messages, openai.ChatCompletionMessage{
 				Role:    openai.ChatMessageRoleUser,
@@ -175,7 +233,7 @@ func (p *EnglishTeacherPixie) ReplyMessage(message string) (string, error) {
 		return "", err
 	}
 
-	if p.skill == EngiishTeacherSkill_Dialogue {
+	if p.skill == EnglishTeacherSkill_Dialogue {
 		p.turns = append(p.turns, Turn{
 			User: message,
 			AI:   reply,

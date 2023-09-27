@@ -339,6 +339,26 @@ func (c *Collection) FindOneOrZero(ctx context.Context, condition C, result inte
 	return nil
 }
 
+func (c *Collection) First(ctx context.Context, condition C, sort S, result interface{}) error {
+	if condition == nil {
+		condition = C{}
+	}
+
+	if sort == nil {
+		sort = S{}
+	}
+
+	sr := c.collection.FindOne(ctx, condition, options.FindOne().SetSort(sort).SetSkip(0))
+	if err := sr.Err(); err != nil {
+		return err
+	}
+	if err := sr.Decode(result); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // FindOneProj 查詢一筆指定欄位資料
 func (c *Collection) FindOneProj(ctx context.Context, condition C, projection P, result interface{}) error {
 	if condition == nil {

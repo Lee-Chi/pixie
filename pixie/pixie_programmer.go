@@ -1,6 +1,7 @@
 package pixie
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -105,11 +106,13 @@ func (p ProgrammerPixie) IntroduceSelf() string {
 func (p ProgrammerPixie) Help() string {
 	return strings.Join([]string{
 		"#{程式語言} - #golang, #javascript, #python ...",
-		"${skill} - $Write, $Read, $Refactor, $Fix, Test, Regex",
+		"${skill} - $Write, $Read, $Refactor, $Fix, $Test, $Regex",
 	}, "\n")
 }
 
-func (p *ProgrammerPixie) ReplyMessage(message string) (string, error) {
+func (p *ProgrammerPixie) Resolve(ctx context.Context, request Request) (string, error) {
+	message := request.Payload
+
 	if strings.HasPrefix(message, "!") {
 		return p.Help(), nil
 	} else if strings.HasPrefix(message, "#") {

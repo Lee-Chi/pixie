@@ -15,26 +15,29 @@ import (
 const (
 	EnglishTeacherSkill_Min int = iota
 	EnglishTeacherSkill_Vocabulary
-	EnglishTeacherSkill_Dialogue
 	EnglishTeacherSkill_Correct
-	EnglishTeacherSkill_Translate
-	EnglishTeacherSkill_Learn
+	EnglishTeacherSkill_Explain
+	EnglishTeacherSkill_TranslateIntoEnglish
+	EnglishTeacherSkill_TranslateIntoChinese
+	EnglishTeacherSkill_Dialogue
 	EnglishTeacherSkill_Max
 )
 
 var EnglishTeacherSkillMeans map[int]string = map[int]string{
-	EnglishTeacherSkill_Vocabulary: "Vocabulary",
-	EnglishTeacherSkill_Dialogue:   "Dialogue",
-	EnglishTeacherSkill_Correct:    "Correct",
-	EnglishTeacherSkill_Translate:  "Translate",
-	EnglishTeacherSkill_Learn:      "Learn",
+	EnglishTeacherSkill_Vocabulary:           "Vocabulary",
+	EnglishTeacherSkill_Correct:              "Correct",
+	EnglishTeacherSkill_Explain:              "Explain",
+	EnglishTeacherSkill_TranslateIntoEnglish: "TranslateIntoEnglish",
+	EnglishTeacherSkill_TranslateIntoChinese: "TranslateIntoChinese",
+	EnglishTeacherSkill_Dialogue:             "Dialogue",
 }
 
 var EnglishTeacherSkillTasks map[int]string = map[int]string{
-	EnglishTeacherSkill_Vocabulary: "Explain the following words in English. Present them in a table format, and the table should include the word, part of speech, definition, and example sentences: \"\"\"%s\"\"\"",
-	EnglishTeacherSkill_Dialogue:   "Can we have a conversation about %s?",
-	EnglishTeacherSkill_Correct:    "Check the following text for grammar or spelling errors: \"\"\"%s\"\"\"",
-	EnglishTeacherSkill_Translate:  "Translate the following text into english: \"\"\"%s\"\"\"",
+	EnglishTeacherSkill_Correct:              "Check the following text for grammar or spelling errors: %s",
+	EnglishTeacherSkill_Explain:              "Explain the following text: %s",
+	EnglishTeacherSkill_TranslateIntoEnglish: "Translate the following text into English: %s",
+	EnglishTeacherSkill_TranslateIntoChinese: "Translate the following text into Chinese: %s",
+	EnglishTeacherSkill_Dialogue:             "Can we have a conversation about %s?",
 }
 
 type EnglishTeacherPixie struct {
@@ -100,7 +103,7 @@ func (p EnglishTeacherPixie) IntroduceSelf() string {
 	return "@british |- 我是您的英文小老師"
 }
 func (p EnglishTeacherPixie) Help() string {
-	return "${skill} - $Vocabulary, $Dialogue, $Correct, $Translate, $Learn"
+	return "${skill} - $Vocabulary, $Correct, $TranslateIntoEnglish, $TranslateIntoChinese, $Dialogue"
 }
 
 func (p *EnglishTeacherPixie) Resolve(ctx context.Context, request Request) (string, error) {
@@ -117,19 +120,19 @@ func (p *EnglishTeacherPixie) Resolve(ctx context.Context, request Request) (str
 		case "Vocabulary":
 			p.skill = EnglishTeacherSkill_Vocabulary
 			reply = "Ok, 想知道什麼單字?"
+		case "TranslateIntoEnglish":
+			p.skill = EnglishTeacherSkill_TranslateIntoEnglish
+			reply = "Ok, 想翻譯什麼呢?"
+		case "TranslateIntoChinese":
+			p.skill = EnglishTeacherSkill_TranslateIntoChinese
+			reply = "Ok, 想翻譯什麼呢?"
+		case "Correct":
+			p.skill = EnglishTeacherSkill_Correct
+			reply = "Ok, 想校正什麼呢?"
 		case "Dialogue":
 			p.skill = EnglishTeacherSkill_Dialogue
 			reply = "Ok, 要討論什麼話題?"
 			p.turns = []Turn{}
-		case "Correct":
-			p.skill = EnglishTeacherSkill_Correct
-			reply = "Ok, 想校正什麼呢?"
-		case "Translate":
-			p.skill = EnglishTeacherSkill_Translate
-			reply = "Ok, 想翻譯什麼呢?"
-		case "Learn":
-			p.skill = EnglishTeacherSkill_Learn
-			reply = "Ok, 來繼續學習八"
 		}
 
 		if reply == "" {
@@ -144,7 +147,7 @@ func (p *EnglishTeacherPixie) Resolve(ctx context.Context, request Request) (str
 
 	messages = append(messages, openai.ChatCompletionMessage{
 		Role:    openai.ChatMessageRoleSystem,
-		Content: "You're an English teacher now.",
+		Content: "你現在是精通英文和中文的語言專家",
 	})
 
 	if p.skill > EnglishTeacherSkill_Min && p.skill < EnglishTeacherSkill_Max {
@@ -168,7 +171,7 @@ func (p *EnglishTeacherPixie) Resolve(ctx context.Context, request Request) (str
 					Content: message,
 				})
 			}
-		} else if p.skill == EnglishTeacherSkill_Learn {
+		} else if p.skill == EnglishTeacherSkill_Vocabulary {
 			action, payload := func(msg string) (string, string) {
 				var action, payload string
 				if len(msg) > 0 {

@@ -173,7 +173,9 @@ func (p *EnglishTeacherPixie) Resolve(ctx context.Context, request Request) (str
 				var action, payload string
 				if len(msg) > 0 {
 					action = msg[:1]
+
 					payload = msg[1:]
+					payload = strings.Trim(payload, " ")
 				}
 
 				return action, payload
@@ -210,15 +212,19 @@ func (p *EnglishTeacherPixie) Resolve(ctx context.Context, request Request) (str
 					parts = append(parts, fmt.Sprintf("%s (%s)", voc.Word, def.PartOfSpeech))
 				}
 				lines := []string{
-					fmt.Sprintf("###%s###", strings.Join(parts, ",")),
-					"Provide three example sentences above of text, and present them in this format.",
-					"Words (part of speech)",
-					"1. Example sentence 1",
-					"2. Example sentence 2",
-					"3. Example sentence 3",
+					fmt.Sprintf(`對以下英文單字做解釋並提供3個例句:%s。以json方式輸出，key包含part_of_speech,explain,sentences。範例: {"bark":{"part_of_speech":"vt","explain":"to shout or speak loudly and insistently","sentences":["The dog barked at the intruder.","The coach barked orders at the players.","He barked out a command to stop."]}}，且美化格式後再回覆。`, strings.Join(parts, ",")),
 				}
 
 				message = strings.Join(lines, "\n")
+			case "&":
+				voc, err := vocabulary.Find(ctx, payload)
+				if err != nil {
+					return "", err
+				}
+
+				return voc.Marshal(), nil
+			case "*":
+				message = fmt.Sprintf(`對以下英文單字做解釋並提供3個例句:%s。以json方式輸出，key包含part_of_speech,explain,sentences。範例: {"bark":{"part_of_speech":"vt","explain":"to shout or speak loudly and insistently","sentences":["The dog barked at the intruder.","The coach barked orders at the players.","He barked out a command to stop."]}}，且美化格式後再回覆。`, payload)
 			case "~":
 				page, err := strconv.ParseInt(payload, 10, 64)
 				if err != nil {

@@ -275,6 +275,22 @@ func Previous(ctx context.Context, userId string) (Vocabulary, error) {
 	return vocabulary, nil
 }
 
+func Find(ctx context.Context, word string) (Vocabulary, error) {
+	var voc struct {
+		Id               primitive.ObjectID `bson:"_id"`
+		model.Vocabulary `bson:"-,inline"`
+	}
+	if err := db.Pixie().Collection(model.CVocabulary).FindOne(
+		ctx,
+		Field_Word.Equal(word),
+		&voc,
+	); err != nil {
+		return Vocabulary{}, err
+	}
+
+	return FromModel(voc.Id, voc.Vocabulary), nil
+}
+
 func Toggle(ctx context.Context, userId string, vocabularyId primitive.ObjectID) error {
 	if vocabularyId.IsZero() {
 		var user model.VocabularyUser

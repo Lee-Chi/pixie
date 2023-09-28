@@ -36,7 +36,7 @@ var EnglishTeacherSkillTasks map[int]string = map[int]string{
 	EnglishTeacherSkill_Correct:              "Check the following text for grammar or spelling errors: %s",
 	EnglishTeacherSkill_Explain:              "Explain the following text: %s",
 	EnglishTeacherSkill_TranslateIntoEnglish: "Translate the following text into English: %s",
-	EnglishTeacherSkill_TranslateIntoChinese: "Translate the following text into Chinese: %s",
+	EnglishTeacherSkill_TranslateIntoChinese: "Translate the following text into Tranditional Chinese: %s",
 	EnglishTeacherSkill_Dialogue:             "Can we have a conversation about %s?",
 }
 
@@ -103,7 +103,7 @@ func (p EnglishTeacherPixie) IntroduceSelf() string {
 	return "@british |- 我是您的英文小老師"
 }
 func (p EnglishTeacherPixie) Help() string {
-	return "${skill} - $Vocabulary, $Correct, $TranslateIntoEnglish, $TranslateIntoChinese, $Dialogue"
+	return "${skill} - $Vocabulary, $Correct, $Explain, $TranslateIntoEnglish, $TranslateIntoChinese"
 }
 
 func (p *EnglishTeacherPixie) Resolve(ctx context.Context, request Request) (string, error) {
@@ -120,15 +120,18 @@ func (p *EnglishTeacherPixie) Resolve(ctx context.Context, request Request) (str
 		case "Vocabulary":
 			p.skill = EnglishTeacherSkill_Vocabulary
 			reply = "Ok, 想知道什麼單字?"
+		case "Correct":
+			p.skill = EnglishTeacherSkill_Correct
+			reply = "Ok, 想校正什麼呢?"
+		case "Explain":
+			p.skill = EnglishTeacherSkill_Explain
+			reply = "Ok, 想知道什麼呢?"
 		case "TranslateIntoEnglish":
 			p.skill = EnglishTeacherSkill_TranslateIntoEnglish
 			reply = "Ok, 想翻譯什麼呢?"
 		case "TranslateIntoChinese":
 			p.skill = EnglishTeacherSkill_TranslateIntoChinese
 			reply = "Ok, 想翻譯什麼呢?"
-		case "Correct":
-			p.skill = EnglishTeacherSkill_Correct
-			reply = "Ok, 想校正什麼呢?"
 		case "Dialogue":
 			p.skill = EnglishTeacherSkill_Dialogue
 			reply = "Ok, 要討論什麼話題?"

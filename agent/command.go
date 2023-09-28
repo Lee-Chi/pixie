@@ -81,8 +81,12 @@ func CommandHelp(ctx context.Context, agent *Agent, context string) Message {
 	px := agent.Pixie()
 
 	return Message{
-		Title:   px.Welcome(),
-		Content: "也可以使用 / 看看有沒有更適合您的小精靈",
+		Title: px.Welcome(),
+		Content: strings.Join([]string{
+			px.Help(),
+			"\n",
+			"也可以使用 / 看看有沒有更適合您的小精靈",
+		}, "\n"),
 	}
 }
 

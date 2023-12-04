@@ -30,7 +30,7 @@ func Build(ctx context.Context, domain string, user string, password string) err
 	}
 
 	mongoClient = client
-	pixiedb = client.Database("pixiedb")
+	pixiedb = client.DatabaseUpgradeOnly("pixiedb")
 
 	return nil
 }

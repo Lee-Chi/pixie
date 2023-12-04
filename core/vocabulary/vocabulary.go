@@ -14,12 +14,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-var (
-	Field_UserId       mongo.F = mongo.Field("user_id")
-	Field_Word         mongo.F = mongo.Field("word")
-	Field_VocabularyId mongo.F = mongo.Field("vocabulary_id")
-)
-
 type Definition struct {
 	Text         string `json:"text"`
 	PartOfSpeech string `json:"part_of_speech"`
@@ -62,7 +56,7 @@ func Commit(ctx context.Context, userId string, vocabulary Vocabulary) error {
 	var md model.Vocabulary
 	if err := db.Pixie().Collection(model.CVocabulary).FindOneOrZero(
 		ctx,
-		Field_Word.Equal(vocabulary.Word),
+		model.Field_Vocabulary.Word.Equal(vocabulary.Word),
 		&md,
 	); err != nil {
 		return err
@@ -118,7 +112,7 @@ func Commit(ctx context.Context, userId string, vocabulary Vocabulary) error {
 
 	if err := db.Pixie().Collection(model.CVocabulary).Update(
 		ctx,
-		Field_Word.Equal(vocabulary.Word),
+		model.Field_Vocabulary.Word.Equal(vocabulary.Word),
 		md,
 	); err != nil {
 		return err
@@ -132,7 +126,7 @@ func At(ctx context.Context, userId string, vocabularyId primitive.ObjectID) (Vo
 		user := model.VocabularyUser{}
 		if err := db.Pixie().Collection(model.CVocabularyUser).FindOneOrZero(
 			ctx,
-			Field_UserId.Equal(userId),
+			model.Field_VocabularyUser.UserId.Equal(userId),
 			&user,
 		); err != nil {
 			return Vocabulary{}, err
@@ -158,11 +152,11 @@ func At(ctx context.Context, userId string, vocabularyId primitive.ObjectID) (Vo
 	return vocabulary, nil
 }
 
-func Next(ctx context.Context, userId string) (Vocabulary, error) {
+func Forward(ctx context.Context, userId string) (Vocabulary, error) {
 	user := model.VocabularyUser{}
 	if err := db.Pixie().Collection(model.CVocabularyUser).FindOneOrZero(
 		ctx,
-		Field_UserId.Equal(userId),
+		model.Field_VocabularyUser.UserId.Equal(userId),
 		&user,
 	); err != nil {
 		return Vocabulary{}, err
@@ -204,7 +198,7 @@ func Next(ctx context.Context, userId string) (Vocabulary, error) {
 
 	if err := db.Pixie().Collection(model.CVocabularyUser).Upsert(
 		ctx,
-		Field_UserId.Equal(userId),
+		model.Field_VocabularyUser.UserId.Equal(userId),
 		user,
 	); err != nil {
 		return Vocabulary{}, err
@@ -215,11 +209,11 @@ func Next(ctx context.Context, userId string) (Vocabulary, error) {
 	return vocabulary, nil
 }
 
-func Previous(ctx context.Context, userId string) (Vocabulary, error) {
+func Back(ctx context.Context, userId string) (Vocabulary, error) {
 	user := model.VocabularyUser{}
 	if err := db.Pixie().Collection(model.CVocabularyUser).FindOneOrZero(
 		ctx,
-		Field_UserId.Equal(userId),
+		model.Field_VocabularyUser.UserId.Equal(userId),
 		&user,
 	); err != nil {
 		return Vocabulary{}, err
@@ -264,7 +258,7 @@ func Previous(ctx context.Context, userId string) (Vocabulary, error) {
 
 	if err := db.Pixie().Collection(model.CVocabularyUser).Upsert(
 		ctx,
-		Field_UserId.Equal(userId),
+		model.Field_VocabularyUser.UserId.Equal(userId),
 		user,
 	); err != nil {
 		return Vocabulary{}, err
@@ -275,6 +269,41 @@ func Previous(ctx context.Context, userId string) (Vocabulary, error) {
 	return vocabulary, nil
 }
 
+func JumpTo(ctx context.Context, userId string, word string) (Vocabulary, error) {
+	user := model.VocabularyUser{}
+	if err := db.Pixie().Collection(model.CVocabularyUser).FindOneOrZero(
+		ctx,
+		model.Field_VocabularyUser.UserId.Equal(userId),
+		&user,
+	); err != nil {
+		return Vocabulary{}, err
+	}
+
+	var voc struct {
+		Id               primitive.ObjectID `bson:"_id"`
+		model.Vocabulary `bson:"-,inline"`
+	}
+	if err := db.Pixie().Collection(model.CVocabulary).FindOne(
+		ctx,
+		model.Field_Vocabulary.Word.Equal(word),
+		&voc,
+	); err != nil {
+		return Vocabulary{}, err
+	}
+
+	user.CurrentVocabularyId = voc.Id
+
+	if err := db.Pixie().Collection(model.CVocabularyUser).Upsert(
+		ctx,
+		model.Field_VocabularyUser.UserId.Equal(userId),
+		user,
+	); err != nil {
+		return Vocabulary{}, err
+	}
+
+	return FromModel(voc.Id, voc.Vocabulary), nil
+}
+
 func Find(ctx context.Context, word string) (Vocabulary, error) {
 	var voc struct {
 		Id               primitive.ObjectID `bson:"_id"`
@@ -282,7 +311,7 @@ func Find(ctx context.Context, word string) (Vocabulary, error) {
 	}
 	if err := db.Pixie().Collection(model.CVocabulary).FindOne(
 		ctx,
-		Field_Word.Equal(word),
+		model.Field_Vocabulary.Word.Equal(word),
 		&voc,
 	); err != nil {
 		return Vocabulary{}, err
@@ -291,12 +320,12 @@ func Find(ctx context.Context, word string) (Vocabulary, error) {
 	return FromModel(voc.Id, voc.Vocabulary), nil
 }
 
-func Toggle(ctx context.Context, userId string, vocabularyId primitive.ObjectID) error {
+func Toggle(ctx context.Context, userId primitive.ObjectID, vocabularyId primitive.ObjectID) error {
 	if vocabularyId.IsZero() {
 		var user model.VocabularyUser
 		if err := db.Pixie().Collection(model.CVocabularyUser).FindOne(
 			ctx,
-			Field_UserId.Equal(userId),
+			model.Field_VocabularyUser.UserId.Equal(userId),
 			&user,
 		); err != nil {
 			return err
@@ -311,7 +340,8 @@ func Toggle(ctx context.Context, userId string, vocabularyId primitive.ObjectID)
 		CreatedAt:    time.Now(),
 	}
 
-	condition := Field_UserId.Equal(userId).And(Field_VocabularyId.Equal(vocabularyId))
+	condition := model.Field_VocabularyBookmark.UserId.Equal(userId).
+		And(model.Field_VocabularyBookmark.VocabularyId.Equal(vocabularyId))
 
 	count, err := db.Pixie().Collection(model.CVocabularyBookmark).Count(
 		ctx,
@@ -342,16 +372,16 @@ func Toggle(ctx context.Context, userId string, vocabularyId primitive.ObjectID)
 	return nil
 }
 
-func BrowseBookmark(ctx context.Context, userId string, page int64) ([]Vocabulary, error) {
+func BrowseBookmark(ctx context.Context, userId primitive.ObjectID, page int64) ([]Vocabulary, error) {
 	bookmarks := []model.VocabularyBookmark{}
 
 	var (
 		limit int64 = 3
-		skip  int64 = (page - 1) * 10
+		skip  int64 = (page - 1) * limit
 	)
 	if err := db.Pixie().Collection(model.CVocabularyBookmark).FindSortSkipLimit(
 		ctx,
-		Field_UserId.Equal(userId),
+		model.Field_VocabularyBookmark.UserId.Equal(userId),
 		mongo.Field_ID.Desc(),
 		skip,
 		limit,

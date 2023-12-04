@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -77,6 +78,11 @@ func (f F) Ignore() P {
 func (f F) Reference() string {
 	return fmt.Sprintf("$%s", f.key)
 }
+
+func (f F) Index(value interface{}) primitive.E {
+	return primitive.E{Key: f.key, Value: value}
+}
+
 func Condition(conditions ...C) C {
 	cond := C{}
 	for _, condition := range conditions {

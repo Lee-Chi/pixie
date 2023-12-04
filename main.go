@@ -8,11 +8,19 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"pixie/agent"
-	"pixie/db"
-	"pixie/pixie"
 
+	"pixie/api"
+	"pixie/api/sentence"
+	"pixie/api/user"
+	"pixie/api/vocabulary"
+	"pixie/core/pixie"
+	"pixie/db"
+
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/contrib/static"
+	"github.com/gin-gonic/gin"
 	"github.com/line/line-bot-sdk-go/v7/linebot"
+	"github.com/sashabaranov/go-openai"
 )
 
 type Config struct {
@@ -27,6 +35,15 @@ type Config struct {
 }
 
 var LineBot *linebot.Client = nil
+
+func CorsConfig() cors.Config {
+	corsConf := cors.DefaultConfig()
+	corsConf.AllowAllOrigins = true
+	corsConf.AllowMethods = []string{"GET", "POST", "DELETE", "OPTIONS", "PUT"}
+	corsConf.AllowHeaders = []string{"Authorization", "Content-Type", "Upgrade", "Origin",
+		"Connection", "Accept-Encoding", "Accept-Language", "Host", "Access-Control-Request-Method", "Access-Control-Request-Headers"}
+	return corsConf
+}
 
 func main() {
 	dbDomain := os.Getenv("MONGODB_DOMAIN")
@@ -64,6 +81,10 @@ func main() {
 		panic(err)
 	}
 
+	// {
+	// 	upgrade()
+	// }
+
 	bot, err := linebot.New(lineBotChannelSecret, lineBotChannelToken)
 	if err != nil {
 		panic(err)
@@ -71,18 +92,44 @@ func main() {
 	LineBot = bot
 
 	pixie.Build(openAIToken)
-	// OpenAI = openai.NewClient(openAIToken)
 
-	http.HandleFunc("/alive", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("1"))
+	router := gin.Default()
+	router.Use(static.Serve("/", static.LocalFile("./out", false)))
+	router.GET("/", func(ctx *gin.Context) {
+		ctx.File("./out/index.html")
 	})
+
+	router.Use(cors.New(CorsConfig()))
+
+	router.POST("/api/user/member/login", user.Member.Login)
+
+	logined := router.Group("", api.CheckAuth)
+	{
+		logined.POST("/api/vocabulary/pool/ask", vocabulary.Pool.Ask)
+		logined.POST("/api/vocabulary/pool/back", vocabulary.Pool.Back)
+		logined.POST("/api/vocabulary/pool/forward", vocabulary.Pool.Forward)
+		logined.POST("/api/vocabulary/pool/jump_to", vocabulary.Pool.JumpTo)
+		logined.POST("/api/vocabulary/bookmark/toggle", vocabulary.Bookmark.Toggle)
+		logined.POST("/api/vocabulary/bookmark/browse", vocabulary.Bookmark.Browse)
+		logined.POST("/api/vocabulary/unknown/ask", vocabulary.Unknown.Ask)
+
+		logined.POST("/api/sentence/interpret", sentence.Interpret)
+		logined.POST("/api/sentence/explain", sentence.Explain)
+
+	}
+
+	router.Run(":8081")
+
+	// http.HandleFunc("/alive", func(w http.ResponseWriter, r *http.Request) {
+	// 	w.Write([]byte("1"))
+	// })
 	http.HandleFunc("/callback", callbackHandler)
 
 	http.ListenAndServe(":8080", nil)
 }
 
 func callbackHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
+	// ctx := context.Background()
 
 	events, err := LineBot.ParseRequest(r)
 
@@ -97,13 +144,23 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 
 	for _, event := range events {
 		if event.Type == linebot.EventTypeMessage {
-			fmt.Println("event message type:", event.Message.Type())
 			switch message := event.Message.(type) {
 			// Handle only on text message
 			case *linebot.TextMessage:
-				replyMessage := agent.ExecuteCommand(ctx, event.Source.UserID, message.Text)
+				reply, err := pixie.Chat([]openai.ChatCompletionMessage{
+					{
+						Role:    openai.ChatMessageRoleUser,
+						Content: message.Text,
+					},
+				})
+				if err != nil {
+					if _, err = LineBot.ReplyMessage(event.ReplyToken, linebot.NewTextMessage(err.Error())).Do(); err != nil {
+						log.Print(err)
+					}
+					return
+				}
 
-				if _, err = LineBot.ReplyMessage(event.ReplyToken, linebot.NewTextMessage(replyMessage.Marshal())).Do(); err != nil {
+				if _, err = LineBot.ReplyMessage(event.ReplyToken, linebot.NewTextMessage(reply)).Do(); err != nil {
 					log.Print(err)
 				}
 			default:

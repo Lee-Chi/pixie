@@ -23,7 +23,7 @@ type Definition struct {
 const CVocabularyBookmark string = "vocabulary_bookmark"
 
 type VocabularyBookmark struct {
-	UserId       string             `bson:"user_id"`
+	UserId       primitive.ObjectID `bson:"user_id"`
 	VocabularyId primitive.ObjectID `bson:"vocabulary_id"`
 	CreatedAt    time.Time          `bson:"created_at"`
 }

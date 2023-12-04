@@ -6,8 +6,9 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"pixie/api"
 	"pixie/api/sentence"
@@ -101,6 +102,7 @@ func main() {
 
 	router.Use(cors.New(CorsConfig()))
 
+	router.POST("/callback", callbackHandler)
 	router.POST("/api/user/member/login", user.Member.Login)
 
 	logined := router.Group("", api.CheckAuth)
@@ -118,26 +120,33 @@ func main() {
 
 	}
 
-	router.Run(":8081")
+	if err := router.Run(":8080"); err != nil {
+		panic(err)
+	}
 
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
+	<-quit
+
+	fmt.Println("service stop ....")
 	// http.HandleFunc("/alive", func(w http.ResponseWriter, r *http.Request) {
 	// 	w.Write([]byte("1"))
 	// })
-	http.HandleFunc("/callback", callbackHandler)
+	// http.HandleFunc("/callback", callbackHandler)
 
-	http.ListenAndServe(":8080", nil)
+	// http.ListenAndServe(":8080", nil)
 }
 
-func callbackHandler(w http.ResponseWriter, r *http.Request) {
+func callbackHandler(ctx *gin.Context) {
 	// ctx := context.Background()
 
-	events, err := LineBot.ParseRequest(r)
+	events, err := LineBot.ParseRequest(ctx.Request)
 
 	if err != nil {
 		if err == linebot.ErrInvalidSignature {
-			w.WriteHeader(400)
+			ctx.JSON(400, nil)
 		} else {
-			w.WriteHeader(500)
+			ctx.JSON(500, nil)
 		}
 		return
 	}

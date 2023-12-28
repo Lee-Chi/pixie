@@ -25,7 +25,7 @@ func Explain(ctx *gin.Context) {
 		return
 	}
 
-	content := fmt.Sprintf(`對以下文字解釋和分析文法: %s`, request.Text)
+	content := fmt.Sprintf(`對以下文字解釋和分析文法並使用繁體中文回覆: %s`, request.Text)
 
 	reply, err := pixie.Chat([]openai.ChatCompletionMessage{
 		{

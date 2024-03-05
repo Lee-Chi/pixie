@@ -5,23 +5,18 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
+	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
+	"time"
 
-	"pixie/api"
-	"pixie/api/sentence"
-	"pixie/api/user"
-	"pixie/api/vocabulary"
 	"pixie/core/pixie"
-	"pixie/db"
 
+	"github.com/Lee-Chi/go-sdk/logger"
+	"github.com/Lee-Chi/go-sdk/service"
 	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/line/line-bot-sdk-go/v7/linebot"
-	"github.com/sashabaranov/go-openai"
 )
 
 type Config struct {
@@ -47,9 +42,9 @@ func CorsConfig() cors.Config {
 }
 
 func main() {
-	dbDomain := os.Getenv("MONGODB_DOMAIN")
-	dbUser := os.Getenv("MONGODB_USER")
-	dbPassword := os.Getenv("MONGODB_PASSWORD")
+	// dbDomain := os.Getenv("MONGODB_DOMAIN")
+	// dbUser := os.Getenv("MONGODB_USER")
+	// dbPassword := os.Getenv("MONGODB_PASSWORD")
 	lineBotChannelSecret := os.Getenv("LINEBOT_CHANNEL_SECRET")
 	lineBotChannelToken := os.Getenv("LINEBOT_CHANNEL_TOKEN")
 	openAIToken := os.Getenv("OPENAI_TOKEN")
@@ -68,9 +63,9 @@ func main() {
 			panic(err)
 		}
 
-		dbDomain = config.DBDomain
-		dbUser = config.DBUser
-		dbPassword = config.DBPassword
+		// dbDomain = config.DBDomain
+		// dbUser = config.DBUser
+		// dbPassword = config.DBPassword
 
 		lineBotChannelSecret = config.LineBotChannelSecret
 		lineBotChannelToken = config.LineBotChannelToken
@@ -78,9 +73,11 @@ func main() {
 		openAIToken = config.OpenAIToken
 	}
 
-	if err := db.Build(context.Background(), dbDomain, dbUser, dbPassword); err != nil {
-		panic(err)
-	}
+	logger.Init()
+
+	// if err := db.Build(context.Background(), dbDomain, dbUser, dbPassword); err != nil {
+	// 	panic(err)
+	// }
 
 	// {
 	// 	upgrade()
@@ -94,59 +91,58 @@ func main() {
 
 	pixie.Build(openAIToken)
 
-	router := gin.Default()
-	router.Use(static.Serve("/", static.LocalFile("./out", false)))
-	router.GET("/", func(ctx *gin.Context) {
-		ctx.File("./out/index.html")
+	logger.Info("server start")
+
+	engine := gin.Default()
+	router := engine.Group("", func(ctx *gin.Context) {
+		path := ctx.Request.URL.Path
+		id := uuid.New().String()
+		service.Accept(id)
+		defer func() {
+			duration := service.Done(id)
+			fmt.Printf("[REQUEST] | %vs | %s\n", float64(duration)/float64(time.Second), path)
+		}()
+		ctx.Next()
+	})
+	// router.Use(static.Serve("/", static.LocalFile("./out", false)))
+	// router.GET("/", func(ctx *gin.Context) {
+	// 	ctx.File("./out/index.html")
+	// })
+
+	// router.Use(cors.New(CorsConfig()))
+
+	router.GET("/sleep", func(ctx *gin.Context) {
+		time.Sleep(2 * time.Second)
+		ctx.JSON(http.StatusOK, nil)
 	})
 
-	router.Use(cors.New(CorsConfig()))
-
 	router.POST("/callback", callbackHandler)
-	router.POST("/api/user/member/login", user.Member.Login)
 
-	logined := router.Group("", api.CheckAuth)
-	{
-		logined.POST("/api/vocabulary/pool/ask", vocabulary.Pool.Ask)
-		logined.POST("/api/vocabulary/pool/back", vocabulary.Pool.Back)
-		logined.POST("/api/vocabulary/pool/forward", vocabulary.Pool.Forward)
-		logined.POST("/api/vocabulary/pool/jump_to", vocabulary.Pool.JumpTo)
-		logined.POST("/api/vocabulary/bookmark/toggle", vocabulary.Bookmark.Toggle)
-		logined.POST("/api/vocabulary/bookmark/browse", vocabulary.Bookmark.Browse)
-		logined.POST("/api/vocabulary/unknown/ask", vocabulary.Unknown.Ask)
+	go func() {
+		if err := engine.Run(":8080"); err != nil {
+			panic(err)
+		}
+	}()
 
-		logined.POST("/api/sentence/interpret", sentence.Interpret)
-		logined.POST("/api/sentence/explain", sentence.Explain)
+	service.Wait(context.Background())
 
-	}
-
-	if err := router.Run(":8080"); err != nil {
-		panic(err)
-	}
-
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-	<-quit
-
-	fmt.Println("service stop ....")
 	// http.HandleFunc("/alive", func(w http.ResponseWriter, r *http.Request) {
 	// 	w.Write([]byte("1"))
 	// })
 	// http.HandleFunc("/callback", callbackHandler)
 
 	// http.ListenAndServe(":8080", nil)
+	logger.Info("server stop")
 }
 
 func callbackHandler(ctx *gin.Context) {
-	// ctx := context.Background()
-
 	events, err := LineBot.ParseRequest(ctx.Request)
 
 	if err != nil {
 		if err == linebot.ErrInvalidSignature {
-			ctx.JSON(400, nil)
+			ctx.JSON(http.StatusBadRequest, nil)
 		} else {
-			ctx.JSON(500, nil)
+			ctx.JSON(http.StatusInternalServerError, nil)
 		}
 		return
 	}
@@ -156,26 +152,21 @@ func callbackHandler(ctx *gin.Context) {
 			switch message := event.Message.(type) {
 			// Handle only on text message
 			case *linebot.TextMessage:
-				reply, err := pixie.Chat([]openai.ChatCompletionMessage{
-					{
-						Role:    openai.ChatMessageRoleUser,
-						Content: message.Text,
-					},
-				})
+				response, err := pixie.Bot.Chat(message.Text)
 				if err != nil {
-					if _, err = LineBot.ReplyMessage(event.ReplyToken, linebot.NewTextMessage(err.Error())).Do(); err != nil {
-						log.Print(err)
-					}
-					return
+					logger.Error("pixie bot chat, %v", err)
+					response = "I'm sorry, I can't do that"
 				}
 
-				if _, err = LineBot.ReplyMessage(event.ReplyToken, linebot.NewTextMessage(reply)).Do(); err != nil {
-					log.Print(err)
+				if _, err = LineBot.ReplyMessage(event.ReplyToken, linebot.NewTextMessage(response)).Do(); err != nil {
+					logger.Error("linebot reply message, %v", err)
+					return
 				}
 			default:
-				fmt.Printf("receive unsupport messge: %+v\n", event.Message)
+				logger.Error("receive unsupport messge, %+v", event.Message)
 				if _, err = LineBot.ReplyMessage(event.ReplyToken, linebot.NewTextMessage("not support this message type now")).Do(); err != nil {
-					log.Print(err)
+					logger.Error("linebot reply message, %v", err)
+					return
 				}
 			}
 		}

@@ -1,6 +1,6 @@
 module pixie
 
-go 1.21.7
+go 1.21
 
 require (
 	github.com/Lee-Chi/go-sdk v0.0.0-20240305083920-1a0ee09ce613
